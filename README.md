@@ -24,9 +24,27 @@
 pip install ansys-aedt-core mcp
 ```
 
-### 配置 MCP (Cursor/Cline 等)
+### 配置 MCP (VS Code / Cursor / Claude Desktop)
 
-在 MCP 配置文件 (`~/.cursor/mcp.json` 或 `~/.cline/mcp.json`) 中添加：
+#### VS Code 配置
+1. 打开设置 → 搜索 "MCP" → 点击 "Edit in settings.json"
+2. 或直接编辑 `C:/Users/<用户名>/AppData/Roaming/Code/User/mcp.json`：
+
+```json
+{
+  "servers": {
+    "hfss": {
+      "command": "python",
+      "args": ["e:/project/GitHub/HFSS_McpServer/HFSS_McpServer/hfss_server.py"],
+      "type": "stdio"
+    }
+  },
+  "inputs": []
+}
+```
+
+#### Cursor / Claude Desktop 配置
+在对应的 MCP 配置文件中添加：
 
 ```json
 {
@@ -42,8 +60,59 @@ pip install ansys-aedt-core mcp
 ### 使用方法
 
 1. 先启动 HFSS（打开任意工程或空白界面）
-2. 重启 MCP 服务器
-3. 开始使用工具调用
+2. 在 VS Code 中重新加载窗口（Ctrl+Shift+P → Reload Window）
+3. MCP 服务器将自动连接
+4. 开始使用工具调用
+
+## 测试验证
+
+### 手动测试 MCP 服务器
+
+可以通过命令行直接测试 MCP 协议：
+
+```bash
+cd e:/project/GitHub/HFSS_McpServer/HFSS_McpServer
+python hfss_server.py
+```
+
+测试请求文件格式：
+
+```json
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"hfss_start_app","arguments":{}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"hfss_get_session_status","arguments":{}}}
+```
+
+保存为 `test_mcp.txt`，然后运行：
+```bash
+type test_mcp.txt | python hfss_server.py
+```
+
+### 测试结果示例
+
+成功连接后会显示：
+```
+=== HFSS Session Status ===
+
+Current Design:
+  Project: Project1
+  Design: HFSSDesign1
+  Solution Type: Terminal
+  Objects: 0
+
+All Designs in Project1:
+  - HFSSDesign1 [CURRENT]
+
+Project Path: E:/documant/Ansoft/
+```
+
+### 技术细节
+
+- **PyAEDT 版本**: 0.25.1+
+- **AEDT 版本**: 2026.1
+- **连接方式**: gRPC (端口 50051)
+- **协议版本**: MCP 2024-11-05
+- **会话持久化**: 自动保存状态到 `hfss_session_state.json`
 
 ## 可用工具
 
