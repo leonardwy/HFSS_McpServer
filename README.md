@@ -123,6 +123,7 @@ Project Path: E:/documant/Ansoft/
 | `hfss_create_project` | 创建新工程 |
 | `hfss_create_box` | 创建长方体模型 |
 | `hfss_list_objects` | 列出所有模型对象 |
+| `hfss_get_object_info` | 获取指定对象的详细信息（类型、材质、边界盒、体积） |
 | `hfss_save_project` | 保存当前工程 |
 | `hfss_get_session_status` | 获取会话状态 |
 | `hfss_get_messages` | 获取 HFSS 日志消息 |

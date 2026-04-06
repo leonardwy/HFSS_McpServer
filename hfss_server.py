@@ -397,6 +397,17 @@ def get_tool_definitions() -> List[Tool]:
             }
         ),
         Tool(
+            name="hfss_get_object_info",
+            description="Get detailed information about a specific object",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Object name to get info for"}
+                },
+                "required": ["name"]
+            }
+        ),
+        Tool(
             name="hfss_save_project",
             description="Save the current project",
             inputSchema={
@@ -544,6 +555,41 @@ async def handle_tool_call(name: str, arguments: Dict[str, Any]) -> str:
             if not objects:
                 return "No objects found"
             return "\n".join([f"- {o}" for o in objects])
+        
+        elif name == "hfss_get_object_info":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            
+            obj_name = arguments.get("name")
+            if not obj_name:
+                return error("Object name is required")
+            
+            try:
+                # 获取对象信息
+                obj = hfss.modeler.objects[obj_name]
+                info_lines = [f"=== Object: {obj_name} ==="]
+                info_lines.append(f"  Type: {obj.object_type}")
+                info_lines.append(f"  Material: {obj.material_name}")
+                
+                # 获取边界盒信息
+                bounding_box = obj.bounding_box
+                if bounding_box:
+                    info_lines.append(f"  Bounding Box:")
+                    info_lines.append(f"    X: [{bounding_box[0]:.6f}, {bounding_box[3]:.6f}]")
+                    info_lines.append(f"    Y: [{bounding_box[1]:.6f}, {bounding_box[4]:.6f}]")
+                    info_lines.append(f"    Z: [{bounding_box[2]:.6f}, {bounding_box[5]:.6f}]")
+                
+                # 获取体积
+                try:
+                    volume = obj.volume
+                    info_lines.append(f"  Volume: {volume:.6f}")
+                except:
+                    pass
+                
+                return success("\n".join(info_lines))
+            except Exception as e:
+                return error(f"Object '{obj_name}' not found or error: {e}")
         
         elif name == "hfss_save_project":
             hfss = ensure_connection()
@@ -741,8 +787,8 @@ async def handle_tool_call(name: str, arguments: Dict[str, Any]) -> str:
 # 需要连接的工具列表（会自动建立连接）
 TOOLS_NEED_CONNECTION = [
     "hfss_create_project", "hfss_create_box", "hfss_list_objects",
-    "hfss_save_project", "hfss_close_project", "hfss_list_projects",
-    "hfss_get_session_status", "hfss_get_messages"
+    "hfss_get_object_info", "hfss_save_project", "hfss_close_project",
+    "hfss_list_projects", "hfss_get_session_status", "hfss_get_messages"
 ]
 
 @app.list_tools()
