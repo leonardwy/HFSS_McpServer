@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# AEDT/Files
+*.aedt
+*.aedtresults/
+*.aedt.lock
+*.sm/
+*.dadb2
+*.asy
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+batch.log
+
+# Temp files
+*~
+*.bak
+*.bak*
+tmp/
+temp/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# State files (generated at runtime)
+hfss_session_state.json
+*.json
+
+# Request/Response files
+request.json
+response.json
+[List*
+{jsonrpc*
