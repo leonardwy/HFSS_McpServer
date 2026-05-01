@@ -6,79 +6,35 @@
 ## 目录说明
 
 - `hfss_server.py`：主服务端代码，负责 MCP 协议、HFSS 会话管理、日志、异常处理等。
-- `tee_waveguide*.py`：实验/测试脚本，仅供开发调试，不纳入主支持和维护范围。
+- `requirements.txt`：Python 依赖清单，可通过 `pip install -r requirements.txt` 一键安装。
+- `HFSS_MCP_EXPERIENCE.md`：开发经验与已知问题记录。
 
 ## 功能特性
 
 - 🔌 **持久化连接** - HFSS 连接在多次调用间保持不断开
 - 🚀 **MCP 协议兼容** - 可与支持 MCP 的 AI 助手集成
-- 📦 **常用工具** - 创建工程、建模、保存项目等
+- 📦 **26 个内置工具** - 覆盖建模、端口、边界、仿真、后处理全流程
 - 🎯 **会话管理** - 支持多项目切换和会话恢复
 
 ## 快速开始
 
-## 可用工具
+### 1. 安装依赖
 
-| 工具名称 | 描述 |
-|---------|------|
-| `hfss_start_app` | 连接现有 HFSS 应用 |
-| `hfss_launch_app` | 启动新的 HFSS 应用 |
-| `hfss_create_project` | 创建新工程 |
-| `hfss_create_box` | 创建长方体模型 |
-| `hfss_list_objects` | 列出所有模型对象 |
-| `hfss_get_object_info` | 获取指定对象的详细信息（类型、材质、边界盒、体积） |
-| `hfss_save_project` | 保存当前工程 |
-| `hfss_get_session_status` | 获取会话状态 |
-| `hfss_get_messages` | 获取 HFSS 日志消息 |
-| `hfss_stop_app` | 停止 HFSS 应用 |
+```bash
+pip install -r requirements.txt
+```
 
----
+依赖包：`mcp`、`pyaedt`、`psutil`
 
-## 未来扩展功能（PyAEDT 支持方向）
+> **注意**：包名为 `pyaedt`，而非 `ansys-aedt-core`（后者在 PyPI 上不存在）。
 
-### 1. 建模与几何操作
-- `hfss_create_cylinder`：创建圆柱体
-- `hfss_create_sphere`：创建球体
-- `hfss_create_polyline`：创建多段线/拉伸/扫掠
-- `hfss_unite`：布尔合并对象
-- `hfss_subtract`：布尔减法
-- `hfss_intersect`：布尔交集
+### 2. 启动服务器
 
-### 2. 端口与边界条件
-- `hfss_assign_wave_port`：分配波导端口
-- `hfss_assign_lumped_port`：分配集总端口
-- `hfss_assign_boundary`：分配PEC/PMC/Radiation等边界
+```bash
+python hfss_server.py
+```
 
-### 3. 变量与参数化
-- `hfss_list_variables`：列出所有设计变量
-- `hfss_set_variable`：设置/修改变量
-- `hfss_delete_variable`：删除变量
-- `hfss_parameter_sweep`：参数扫描与批量仿真
-
-### 4. 仿真控制
-- `hfss_create_setup`：创建/配置仿真设置
-- `hfss_run_analysis`：运行仿真
-- `hfss_batch_solve`：批量仿真任务
-
-### 5. 结果与后处理
-- `hfss_get_s_parameters`：提取 S 参数
-- `hfss_export_field_plot`：导出场分布图片/数据
-- `hfss_export_report`：导出报告/曲线/表格
-
-### 6. 项目与设计管理
-- `hfss_list_projects`：列出所有工程
-- `hfss_import_project`：导入工程
-- `hfss_export_project`：导出工程
-- `hfss_rename_project`：重命名工程
-- `hfss_delete_project`：删除工程
-
-### 7. 高级与自动化
-- 自动错误恢复与重连
-- 日志与异常追踪增强
-- 复杂流程自动化脚本支持
-
----
-如需优先实现上述某项功能，请在 issue 或开发计划中标注。
+### 3. 配置 MCP 客户端（以 VS Code 为例）
 
 ```json
 {
@@ -88,15 +44,87 @@
       "args": ["e:/project/GitHub/HFSS_McpServer/HFSS_McpServer/hfss_server.py"],
       "type": "stdio"
     }
-  },
-  "inputs": []
+  }
 }
 ```
+
+## 可用工具（26 个）
+
+### 会话与应用管理
+
+| 工具名称 | 描述 |
+|---------|------|
+| `hfss_start_app` | 连接现有 HFSS 应用 |
+| `hfss_launch_app` | 启动新的 HFSS 应用（含 GUI） |
+| `hfss_stop_app` | 停止 HFSS 应用并释放资源 |
+| `hfss_restart_app` | 重启 HFSS 应用 |
+| `hfss_get_session_status` | 获取当前会话详细状态 |
+| `hfss_get_process_status` | 获取 HFSS 进程状态 |
+| `hfss_get_messages` | 获取 HFSS 日志消息 |
+
+### 项目管理
+
+| 工具名称 | 描述 |
+|---------|------|
+| `hfss_create_project` | 创建新工程（支持 Terminal/DrivenModal 等解法类型） |
+| `hfss_save_project` | 保存当前工程 |
+| `hfss_close_project` | 关闭当前工程（会话保持） |
+| `hfss_list_projects` | 列出所有活跃会话 |
+| `hfss_import_project` | 导入工程文件 |
+| `hfss_export_project` | 导出当前工程 |
+
+### 建模与几何
+
+| 工具名称 | 描述 |
+|---------|------|
+| `hfss_create_box` | 创建长方体（指定中心坐标与尺寸） |
+| `hfss_create_cylinder` | 创建圆柱体（支持 X/Y/Z 轴方向） |
+| `hfss_create_sphere` | 创建球体 |
+| `hfss_list_objects` | 列出所有模型对象 |
+| `hfss_get_object_info` | 获取指定对象详细信息（材质、边界盒、体积等） |
+
+### 端口与边界条件
+
+| 工具名称 | 描述 |
+|---------|------|
+| `hfss_assign_wave_port` | 为指定面分配波导端口 |
+| `hfss_assign_radiation_boundary` | 为指定面分配辐射边界条件 |
+
+### 变量与参数化
+
+| 工具名称 | 描述 |
+|---------|------|
+| `hfss_list_variables` | 列出所有设计变量 |
+| `hfss_set_variable` | 设置/修改设计变量（如 `'10mm'`） |
+| `hfss_delete_variable` | 删除设计变量 |
+
+### 仿真控制与后处理
+
+| 工具名称 | 描述 |
+|---------|------|
+| `hfss_create_setup` | 创建仿真设置（指定名称与频率） |
+| `hfss_run_analysis` | 运行仿真分析 |
+| `hfss_get_s_parameters` | 提取 S 参数结果（兼容不同 PyAEDT 版本） |
+
+---
+
+## 已知问题与注意事项
+
+详见 [HFSS_MCP_EXPERIENCE.md](HFSS_MCP_EXPERIENCE.md)，包含以下问题的根因与修复方案：
+
+- PyAEDT 辐射边界 API 版本差异（`assign_radiation_boundary_to_faces`）
+- Wave Port API 面 ID 使用方式
+- S 参数提取版本兼容性回退逻辑
+- `InsertInfiniteSphereSetup` 在 gRPC 模式下失败
+- C 盘满时 pip 静默失败的绕过方法
+
+---
 
 ## 开发与维护说明
 
 - **主支持文件**：仅 `hfss_server.py` 作为主服务端代码，建议所有新功能、性能优化、日志改进等均在此文件实现。
-- **实验脚本**：`tee_waveguide*.py` 仅为开发实验用途，不纳入正式维护和文档管理。
+- **依赖安装问题**：若 C 盘空间不足导致 pip 静默失败，需将 `TEMP`、`TMP`、`PIP_CACHE_DIR` 环境变量重定向至其他磁盘（如 `E:\pip-tmp`）后再安装。
+- **兼容版本**：已在 AEDT 2026.1 + PyAEDT 0.25.1 + Python 3.12 下验证通过。
 
 ## 日志改进建议
 

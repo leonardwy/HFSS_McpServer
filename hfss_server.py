@@ -963,10 +963,8 @@ async def handle_tool_call(name: str, arguments: Dict[str, Any]) -> str:
             face_id = arguments["face_id"]
             port_name = arguments.get("port_name", f"WavePort_{face_id}")
             try:
-                obj = hfss.modeler.objects[obj_name]
-                face = obj.faces[face_id]
-                # PyAEDT 推荐用 create_wave_port
-                port = hfss.create_wave_port(face, name=port_name)
+                # face_id 是 HFSS 的真实面 ID，不是 faces 列表索引
+                port = hfss.wave_port(assignment=face_id, name=port_name)
                 return success(f"Wave port '{port_name}' assigned to {obj_name} face {face_id}")
             except Exception as e:
                 return error(f"Failed to assign wave port: {e}")
@@ -979,10 +977,8 @@ async def handle_tool_call(name: str, arguments: Dict[str, Any]) -> str:
             face_id = arguments["face_id"]
             boundary_name = arguments.get("boundary_name", f"Radiation_{face_id}")
             try:
-                obj = hfss.modeler.objects[obj_name]
-                face = obj.faces[face_id]
-                # PyAEDT 推荐用 create_radiation_boundary
-                bnd = hfss.create_radiation_boundary(face, name=boundary_name)
+                # face_id 是 HFSS 的真实面 ID，不是 faces 列表索引
+                bnd = hfss.assign_radiation_boundary_to_faces([face_id], name=boundary_name)
                 return success(f"Radiation boundary '{boundary_name}' assigned to {obj_name} face {face_id}")
             except Exception as e:
                 return error(f"Failed to assign radiation boundary: {e}")
@@ -1059,11 +1055,37 @@ async def handle_tool_call(name: str, arguments: Dict[str, Any]) -> str:
                 return error("No active project")
             setup_name = arguments["setup_name"]
             try:
-                report = hfss.post.get_report_arrays("S Parameters", setup_name)
-                if not report:
-                    return success("No S-parameters found.")
-                lines = [f"{k}: {v}" for k, v in report.items()]
-                return success("\n".join(lines))
+                # 兼容不同 PyAEDT 版本：优先读取数组，失败时创建报告。
+                if hasattr(hfss.post, "get_report_arrays"):
+                    report = hfss.post.get_report_arrays("S Parameters", setup_name)
+                    if not report:
+                        return success("No S-parameters found.")
+                    lines = [f"{k}: {v}" for k, v in report.items()]
+                    return success("\n".join(lines))
+
+                setup_candidates = [
+                    f"{setup_name} : Sweep1",
+                    f"{setup_name} : LastAdaptive",
+                    setup_name,
+                ]
+                last_err = None
+                for setup_sweep in setup_candidates:
+                    try:
+                        report_name = f"SParam_{setup_name}".replace(" ", "_")
+                        hfss.post.create_report(
+                            expressions="dB(S(P1,P1))",
+                            setup_sweep_name=setup_sweep,
+                            report_category="Modal Solution Data",
+                            plot_name=report_name,
+                        )
+                        return success(
+                            f"S-parameter report created in HFSS: {report_name} (dB(S(P1,P1)), {setup_sweep})"
+                        )
+                    except Exception as e:
+                        last_err = e
+                        continue
+
+                return error(f"Failed to get S-parameters: {last_err}")
             except Exception as e:
                 return error(f"Failed to get S-parameters: {e}")
 
