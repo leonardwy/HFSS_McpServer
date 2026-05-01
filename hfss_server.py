@@ -497,6 +497,147 @@ def get_tool_definitions() -> List[Tool]:
                 }
             }
         ),
+        # ========== 扩展功能 ===========
+        Tool(
+            name="hfss_create_cylinder",
+            description="Create a cylinder",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "center_position": {"type": "array", "items": {"type": "number"}, "description": "[x, y, z] center position", "minItems": 3, "maxItems": 3},
+                    "radius": {"type": "number", "description": "Cylinder radius"},
+                    "height": {"type": "number", "description": "Cylinder height"},
+                    "axis": {"type": "string", "description": "Axis direction (X/Y/Z)", "default": "Z"},
+                    "name": {"type": "string", "description": "Object name"},
+                    "material": {"type": "string", "description": "Material name", "default": "vacuum"}
+                },
+                "required": ["center_position", "radius", "height"]
+            }
+        ),
+        Tool(
+            name="hfss_create_sphere",
+            description="Create a sphere",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "center_position": {"type": "array", "items": {"type": "number"}, "description": "[x, y, z] center position", "minItems": 3, "maxItems": 3},
+                    "radius": {"type": "number", "description": "Sphere radius"},
+                    "name": {"type": "string", "description": "Object name"},
+                    "material": {"type": "string", "description": "Material name", "default": "vacuum"}
+                },
+                "required": ["center_position", "radius"]
+            }
+        ),
+        Tool(
+            name="hfss_assign_wave_port",
+            description="Assign a wave port to a face",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "object_name": {"type": "string", "description": "Object name"},
+                    "face_id": {"type": "integer", "description": "Face ID"},
+                    "port_name": {"type": "string", "description": "Port name"}
+                },
+                "required": ["object_name", "face_id"]
+            }
+        ),
+        Tool(
+            name="hfss_assign_radiation_boundary",
+            description="Assign a radiation boundary to a face",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "object_name": {"type": "string", "description": "Object name"},
+                    "face_id": {"type": "integer", "description": "Face ID"},
+                    "boundary_name": {"type": "string", "description": "Boundary name"}
+                },
+                "required": ["object_name", "face_id"]
+            }
+        ),
+        Tool(
+            name="hfss_list_variables",
+            description="List all design variables",
+            inputSchema={"type": "object", "properties": {}}
+        ),
+        Tool(
+            name="hfss_set_variable",
+            description="Set or update a design variable",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Variable name"},
+                    "value": {"type": "string", "description": "Variable value (e.g. '10mm')"}
+                },
+                "required": ["name", "value"]
+            }
+        ),
+        Tool(
+            name="hfss_delete_variable",
+            description="Delete a design variable",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Variable name"}
+                },
+                "required": ["name"]
+            }
+        ),
+        Tool(
+            name="hfss_create_setup",
+            description="Create a simulation setup",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "setup_name": {"type": "string", "description": "Setup name", "default": "Setup1"},
+                    "frequency": {"type": "string", "description": "Frequency (e.g. '10GHz')"}
+                },
+                "required": ["setup_name", "frequency"]
+            }
+        ),
+        Tool(
+            name="hfss_run_analysis",
+            description="Run simulation analysis",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "setup_name": {"type": "string", "description": "Setup name", "default": "Setup1"}
+                },
+                "required": ["setup_name"]
+            }
+        ),
+        Tool(
+            name="hfss_get_s_parameters",
+            description="Get S-parameters results",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "setup_name": {"type": "string", "description": "Setup name", "default": "Setup1"}
+                },
+                "required": ["setup_name"]
+            }
+        ),
+        Tool(
+            name="hfss_import_project",
+            description="Import a project file",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Project file path"}
+                },
+                "required": ["path"]
+            }
+        ),
+        Tool(
+            name="hfss_export_project",
+            description="Export the current project",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Export file path"}
+                },
+                "required": ["path"]
+            }
+        ),
     ]
 
 
@@ -772,6 +913,184 @@ async def handle_tool_call(name: str, arguments: Dict[str, Any]) -> str:
                 logger.error(f"Failed to launch HFSS: {e}")
                 return error(f"Failed to launch HFSS: {e}")
         
+        # ========== 扩展功能骨架 ===========
+
+        elif name == "hfss_create_cylinder":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            center = arguments["center_position"]
+            radius = arguments["radius"]
+            height = arguments["height"]
+            axis = arguments.get("axis", "Z")
+            cyl_name = arguments.get("name", "Cylinder1")
+            material = arguments.get("material", "vacuum")
+            obj = hfss.modeler.create_cylinder(
+                cs_axis=axis,
+                position=center,
+                radius=radius,
+                height=height,
+                name=cyl_name
+            )
+            if material != "vacuum":
+                hfss.assign_material(cyl_name, material)
+            return success(f"Cylinder '{cyl_name}' created at {center} (r={radius}, h={height}, axis={axis})")
+
+
+        elif name == "hfss_create_sphere":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            center = arguments["center_position"]
+            radius = arguments["radius"]
+            sph_name = arguments.get("name", "Sphere1")
+            material = arguments.get("material", "vacuum")
+            obj = hfss.modeler.create_sphere(
+                position=center,
+                radius=radius,
+                name=sph_name
+            )
+            if material != "vacuum":
+                hfss.assign_material(sph_name, material)
+            return success(f"Sphere '{sph_name}' created at {center} (r={radius})")
+
+
+        elif name == "hfss_assign_wave_port":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            obj_name = arguments["object_name"]
+            face_id = arguments["face_id"]
+            port_name = arguments.get("port_name", f"WavePort_{face_id}")
+            try:
+                obj = hfss.modeler.objects[obj_name]
+                face = obj.faces[face_id]
+                # PyAEDT 推荐用 create_wave_port
+                port = hfss.create_wave_port(face, name=port_name)
+                return success(f"Wave port '{port_name}' assigned to {obj_name} face {face_id}")
+            except Exception as e:
+                return error(f"Failed to assign wave port: {e}")
+
+        elif name == "hfss_assign_radiation_boundary":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            obj_name = arguments["object_name"]
+            face_id = arguments["face_id"]
+            boundary_name = arguments.get("boundary_name", f"Radiation_{face_id}")
+            try:
+                obj = hfss.modeler.objects[obj_name]
+                face = obj.faces[face_id]
+                # PyAEDT 推荐用 create_radiation_boundary
+                bnd = hfss.create_radiation_boundary(face, name=boundary_name)
+                return success(f"Radiation boundary '{boundary_name}' assigned to {obj_name} face {face_id}")
+            except Exception as e:
+                return error(f"Failed to assign radiation boundary: {e}")
+
+
+        elif name == "hfss_list_variables":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            try:
+                variables = hfss.variable_manager.variables
+                if not variables:
+                    return success("No variables defined.")
+                lines = [f"- {k} = {v}" for k, v in variables.items()]
+                return success("\n".join(lines))
+            except Exception as e:
+                return error(f"Failed to list variables: {e}")
+
+
+        elif name == "hfss_set_variable":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            var_name = arguments["name"]
+            var_value = arguments["value"]
+            try:
+                hfss.variable_manager.set_variable(var_name, var_value)
+                return success(f"Variable '{var_name}' set to {var_value}")
+            except Exception as e:
+                return error(f"Failed to set variable: {e}")
+
+
+        elif name == "hfss_delete_variable":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            var_name = arguments["name"]
+            try:
+                hfss.variable_manager.delete_variable(var_name)
+                return success(f"Variable '{var_name}' deleted")
+            except Exception as e:
+                return error(f"Failed to delete variable: {e}")
+
+
+        elif name == "hfss_create_setup":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            setup_name = arguments["setup_name"]
+            frequency = arguments["frequency"]
+            try:
+                setup = hfss.create_setup(setup_name)
+                setup.props["Frequency"] = frequency
+                return success(f"Setup '{setup_name}' created with frequency {frequency}")
+            except Exception as e:
+                return error(f"Failed to create setup: {e}")
+
+
+        elif name == "hfss_run_analysis":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            setup_name = arguments["setup_name"]
+            try:
+                hfss.analyze_setup(setup_name)
+                return success(f"Analysis started for setup '{setup_name}'")
+            except Exception as e:
+                return error(f"Failed to start analysis: {e}")
+
+
+        elif name == "hfss_get_s_parameters":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            setup_name = arguments["setup_name"]
+            try:
+                report = hfss.post.get_report_arrays("S Parameters", setup_name)
+                if not report:
+                    return success("No S-parameters found.")
+                lines = [f"{k}: {v}" for k, v in report.items()]
+                return success("\n".join(lines))
+            except Exception as e:
+                return error(f"Failed to get S-parameters: {e}")
+
+
+        elif name == "hfss_import_project":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            path = arguments["path"]
+            try:
+                hfss.load_project(path)
+                return success(f"Project imported from {path}")
+            except Exception as e:
+                return error(f"Failed to import project: {e}")
+
+
+        elif name == "hfss_export_project":
+            hfss = ensure_connection()
+            if not hfss:
+                return error("No active project")
+            path = arguments["path"]
+            try:
+                hfss.save_project(path)
+                return success(f"Project exported to {path}")
+            except Exception as e:
+                return error(f"Failed to export project: {e}")
+
         else:
             return error(f"Unknown tool: {name}")
     
