@@ -29,7 +29,10 @@ import logging
 import asyncio
 from typing import Optional, Dict, Any, List
 from dataclasses import dataclass
+import json
 import os
+from pathlib import Path
+import re
 import psutil
 
 # Configure logging
@@ -301,6 +304,87 @@ _global_hfss: Optional[Hfss] = None
 
 # State persistence
 STATE_FILE = "hfss_session_state.json"
+KB_FILE = "hfss_modeling_knowledge_base.json"
+
+
+def _tokenize(text: str) -> List[str]:
+    """Tokenize query text for lightweight keyword matching."""
+    if not text:
+        return []
+    return [tok for tok in re.split(r"[^a-zA-Z0-9_]+", text.lower()) if tok]
+
+
+def _load_modeling_kb() -> Dict[str, Any]:
+    """Load local HFSS modeling knowledge base from JSON file."""
+    kb_path = Path(KB_FILE)
+    if not kb_path.exists():
+        return {"metadata": {}, "entries": []}
+    try:
+        with kb_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+            if not isinstance(data, dict):
+                return {"metadata": {}, "entries": []}
+            if "entries" not in data or not isinstance(data["entries"], list):
+                data["entries"] = []
+            return data
+    except Exception as e:
+        logger.warning(f"Failed to load modeling KB: {e}")
+        return {"metadata": {}, "entries": []}
+
+
+def _query_modeling_kb(query: str, top_k: int = 5) -> List[Dict[str, Any]]:
+    """Simple keyword-scored retrieval from local HFSS modeling knowledge base."""
+    kb = _load_modeling_kb()
+    entries = kb.get("entries", [])
+    query_tokens = _tokenize(query)
+    if not entries:
+        return []
+
+    # If no query is provided, return a few broad high-value entries.
+    if not query_tokens:
+        return entries[:max(1, min(top_k, len(entries)))]
+
+    scored = []
+    for entry in entries:
+        searchable = " ".join([
+            str(entry.get("title", "")),
+            str(entry.get("tags", "")),
+            str(entry.get("summary", "")),
+            str(entry.get("recommendation", "")),
+            str(entry.get("raw_excerpt", "")),
+        ]).lower()
+        score = 0
+        for token in query_tokens:
+            if token in searchable:
+                score += 1
+        if score > 0:
+            scored.append((score, entry))
+
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [item[1] for item in scored[:max(1, top_k)]]
+
+
+def _format_kb_hits(hits: List[Dict[str, Any]], query: str) -> str:
+    """Format KB retrieval output for MCP response."""
+    if not hits:
+        return "[ERROR] No matching modeling knowledge found. Build KB first or refine query."
+
+    lines = [f"[OK] HFSS modeling knowledge hits for query: {query}"]
+    for idx, hit in enumerate(hits, start=1):
+        title = hit.get("title", "Untitled")
+        source = hit.get("source", "unknown")
+        tags = ", ".join(hit.get("tags", [])) if isinstance(hit.get("tags"), list) else str(hit.get("tags", ""))
+        summary = hit.get("summary", "")
+        rec = hit.get("recommendation", "")
+        lines.append(f"\n{idx}. {title}")
+        lines.append(f"   Source: {source}")
+        if tags:
+            lines.append(f"   Tags: {tags}")
+        if summary:
+            lines.append(f"   Summary: {summary}")
+        if rec:
+            lines.append(f"   Recommendation: {rec}")
+    return "\n".join(lines)
 
 def save_session_state():
     """保存会话状态到文件"""
@@ -636,6 +720,26 @@ def get_tool_definitions() -> List[Tool]:
                     "path": {"type": "string", "description": "Export file path"}
                 },
                 "required": ["path"]
+            }
+        ),
+        Tool(
+            name="hfss_query_modeling_knowledge",
+            description="Query local HFSS modeling knowledge base for best-practice hints before automatic modeling",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Natural language modeling query, e.g. 'wave port setup for coax feed'"},
+                    "top_k": {"type": "integer", "description": "Maximum number of matched knowledge entries", "default": 5}
+                },
+                "required": ["query"]
+            }
+        ),
+        Tool(
+            name="hfss_get_modeling_knowledge_status",
+            description="Get local HFSS modeling knowledge base status and coverage",
+            inputSchema={
+                "type": "object",
+                "properties": {}
             }
         ),
     ]
@@ -1112,6 +1216,35 @@ async def handle_tool_call(name: str, arguments: Dict[str, Any]) -> str:
                 return success(f"Project exported to {path}")
             except Exception as e:
                 return error(f"Failed to export project: {e}")
+
+        elif name == "hfss_query_modeling_knowledge":
+            query = arguments.get("query", "").strip()
+            if not query:
+                return error("Query is required")
+            top_k = int(arguments.get("top_k", 5))
+            top_k = max(1, min(top_k, 20))
+            hits = _query_modeling_kb(query=query, top_k=top_k)
+            return _format_kb_hits(hits, query)
+
+        elif name == "hfss_get_modeling_knowledge_status":
+            kb = _load_modeling_kb()
+            entries = kb.get("entries", [])
+            metadata = kb.get("metadata", {})
+            status_lines = ["[OK] HFSS modeling knowledge base status"]
+            status_lines.append(f"Entries: {len(entries)}")
+            if metadata:
+                source_root = metadata.get("source_root", "")
+                generated_at = metadata.get("generated_at", "")
+                scanned_files = metadata.get("scanned_files", "")
+                if source_root:
+                    status_lines.append(f"Source root: {source_root}")
+                if scanned_files != "":
+                    status_lines.append(f"Scanned files: {scanned_files}")
+                if generated_at:
+                    status_lines.append(f"Generated at: {generated_at}")
+            if not entries:
+                status_lines.append("Hint: run scripts/build_hfss_kb.py to generate KB from PDF docs")
+            return "\n".join(status_lines)
 
         else:
             return error(f"Unknown tool: {name}")

@@ -15,6 +15,7 @@
 - 🚀 **MCP 协议兼容** - 可与支持 MCP 的 AI 助手集成
 - 📦 **26 个内置工具** - 覆盖建模、端口、边界、仿真、后处理全流程
 - 🎯 **会话管理** - 支持多项目切换和会话恢复
+- 📚 **建模知识库检索** - 可基于本地 ANSYS PDF 文档构建并检索 HFSS 建模知识
 
 ## 快速开始
 
@@ -24,7 +25,7 @@
 pip install -r requirements.txt
 ```
 
-依赖包：`mcp`、`pyaedt`、`psutil`
+依赖包：`mcp`、`pyaedt`、`psutil`、`pypdf`
 
 > **注意**：包名为 `pyaedt`，而非 `ansys-aedt-core`（后者在 PyPI 上不存在）。
 
@@ -106,6 +107,39 @@ python hfss_server.py
 | `hfss_run_analysis` | 运行仿真分析 |
 | `hfss_get_s_parameters` | 提取 S 参数结果（兼容不同 PyAEDT 版本） |
 
+### 建模知识库
+
+| 工具名称 | 描述 |
+|---------|------|
+| `hfss_get_modeling_knowledge_status` | 查看本地 HFSS 建模知识库状态 |
+| `hfss_query_modeling_knowledge` | 按问题检索建模经验（端口/边界/setup/网格等） |
+
+---
+
+## 从 ANSYS 文档构建 HFSS 知识库
+
+如果你本机有完整的 ANSYS ProductDocPDF，可用脚本提取和索引与 HFSS/AEDT 建模相关内容：
+
+```bash
+python scripts/build_hfss_kb.py --doc-root "E:/download/ANSYS2026R1/ANSYS2026R1_ProductDocPDF/v261"
+```
+
+默认会在项目根目录生成：
+
+- `hfss_modeling_knowledge_base.json`
+
+建议在以下时机重新构建：
+
+- 升级 ANSYS 主版本后
+- 更换文档路径后
+- 自动建模策略更新后
+
+自动建模流程建议：
+
+1. 先调用 `hfss_query_modeling_knowledge` 检索当前建模任务关键字
+2. 将返回的 recommendation 映射到端口/边界/setup 工具调用
+3. 完成建模后再执行仿真和结果提取
+
 ---
 
 ## 已知问题与注意事项
@@ -141,6 +175,42 @@ python hfss_server.py
 
 ---
 如需扩展功能、性能优化或日志增强，请直接修改 `hfss_server.py` 并遵循上述规范。
+
+---
+
+## 🎯 快速入门：HFSS 自动建模知识库
+
+从官方 ANSYS 文档自动提取和检索 HFSS 建模规则，在自动建模时提供实时建议。
+
+### 三行命令启动
+
+```bash
+# 1. 构建知识库（从你的 ANSYS 文档目录）
+python quickstart.py build
+
+# 2. 检查状态
+python quickstart.py status
+
+# 3. 启动 MCP 服务器
+python quickstart.py server
+```
+
+### 自动建模中查询知识
+
+```json
+{
+  "method": "tools/call",
+  "params": {
+    "name": "hfss_query_modeling_knowledge",
+    "arguments": {
+      "query": "wave port setup for coaxial antenna feed",
+      "top_k": 5
+    }
+  }
+}
+```
+
+**📖 详细指南**：[MODELING_KB_GUIDE.md](MODELING_KB_GUIDE.md)
 
 1. 先启动 HFSS（打开任意工程或空白界面）
 2. 在 VS Code 中重新加载窗口（Ctrl+Shift+P → Reload Window）
